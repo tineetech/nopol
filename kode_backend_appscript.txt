@@ -1,0 +1,121 @@
+function doGet(e) {
+  const sheetName = e.parameter.sheet || "UNIT";
+  const callback = e.parameter.callback || "callback";
+  const action = e.parameter.action || "read";
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+
+  if (!sheet) {
+    return buildJSONP(callback, { status: "error", message: "Sheet tidak ditemukan" });
+  }
+
+  try {
+    if (action === "read") {
+      const data = sheet.getDataRange().getValues();
+      const headers = data.shift();
+      const result = data.map(row => {
+        let obj = {};
+        headers.forEach((header, i) => {
+          obj[header] = row[i];
+        });
+        return obj;
+      });
+      return buildJSONP(callback, result);
+
+    } else if (action === "save") {
+      const payload = JSON.parse(e.parameter.payload);
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+      const data = sheet.getDataRange().getValues();
+      let rowToUpdate = -1;
+      for (let r = 1; r < data.length; r++) {
+        if (String(data[r][headers.indexOf("BAYS")]) === String(payload["BAYS"])) {
+          rowToUpdate = r + 1;
+          break;
+        }
+      }
+
+      if (rowToUpdate > -1) {
+        const targetRow = sheet.getRange(rowToUpdate, 1, 1, sheet.getLastColumn());
+        for (const key in payload) {
+          const colIndex = headers.indexOf(key) + 1;
+          if (colIndex > 0) {
+            targetRow.getCell(1, colIndex).setValue(payload[key]);
+          }
+        }
+        return buildJSONP(callback, {
+          status: "success",
+          message: `Data for BAY ${payload["BAYS"]} updated`
+        });
+      } else {
+        return buildJSONP(callback, {
+          status: "error",
+          message: `BAY ${payload["BAYS"]} not found — nothing updated`
+        });
+      }
+
+    } else if (action === "post") {
+      // === ADD NEW ROW ===
+      const payload = JSON.parse(e.parameter.payload);
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+      const newRow = headers.map(h => payload[h] || "");
+      sheet.appendRow(newRow);
+
+      return buildJSONP(callback, {
+        status: "success",
+        message: `New row added to ${sheetName}`
+      });
+
+    } else if (action === "update") {
+      // === UPDATE LATEST ROW BY BAYS OR explicit _rowRef ===
+      const payload = JSON.parse(e.parameter.payload);
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+      const data = sheet.getDataRange().getValues();
+      let rowToUpdate = -1;
+
+      if (payload._rowRef) {
+        // If client sent explicit row index
+        rowToUpdate = parseInt(payload._rowRef, 10);
+      } else if (payload["BAYS"]) {
+        // Find the LAST row with this BAY (loop backwards)
+        for (let r = data.length - 1; r > 0; r--) {
+          if (String(data[r][headers.indexOf("BAYS")]) === String(payload["BAYS"])) {
+            rowToUpdate = r + 1; // +1 for 1-based row index
+            break;
+          }
+        }
+      }
+
+      if (rowToUpdate > -1) {
+        const targetRow = sheet.getRange(rowToUpdate, 1, 1, sheet.getLastColumn());
+        for (const key in payload) {
+          const colIndex = headers.indexOf(key) + 1;
+          if (colIndex > 0) {
+            targetRow.getCell(1, colIndex).setValue(payload[key]);
+          }
+        }
+        return buildJSONP(callback, {
+          status: "success",
+          message: `Row ${rowToUpdate} (latest for BAY ${payload["BAYS"]}) updated in ${sheetName}`
+        });
+      } else {
+        return buildJSONP(callback, {
+          status: "error",
+          message: `Row not found for update`
+        });
+      }
+
+    } else {
+      return buildJSONP(callback, { status: "error", message: "Unknown action" });
+    }
+  } catch (error) {
+    return buildJSONP(callback, { status: "error", message: error.message });
+  }
+}
+
+function buildJSONP(callback, obj) {
+  const json = JSON.stringify(obj);
+  return ContentService.createTextOutput(`${callback}(${json});`)
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}

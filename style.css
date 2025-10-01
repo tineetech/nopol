@@ -1,0 +1,22 @@
+/* Animasi popup */
+.popup-enter {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.popup-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: all 0.3s ease-out;
+}
+.popup-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+.popup-exit-active {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.2s ease-in;
+}
+#popup-box::-webkit-scrollbar {
+  display: none;
+}
