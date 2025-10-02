@@ -88,6 +88,7 @@ const sheetsConfig = {
     "PIC",
   ],
   notes: [
+    "TYPE UNIT",
     "MODEL UNIT",
     "AXLE",
     "SITE",
@@ -394,6 +395,7 @@ function populateFromNotes(dataRaw) {
     else data = Object.values(dataRaw);
   }
 
+  createDropdownIfData(data, "TYPE UNIT", "TYPEUNIT");
   createDropdownIfData(data, "MODEL UNIT", "MODELUNIT");
   createDropdownIfData(data, "AXLE", "AXLE");
 
